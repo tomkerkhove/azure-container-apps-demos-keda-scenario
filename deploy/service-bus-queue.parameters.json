@@ -1,0 +1,21 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "LogAnalytics.Workspace.Name": {
+            "value": "azure-container-apps-demos-keda-logs"
+        },
+        "ContainerApps.Environment.Name": {
+            "value": "azure-container-apps-demos-keda-container-plan"
+        },
+        "ContainerApps.Portal.Name": {
+            "value": "aca-demos-keda-apps-portal"
+        },
+        "ContainerApps.OrderProcessor.Name": {
+            "value": "aca-demos-keda-apps-processor"
+        },
+        "ServiceBus.Namespace.Name": {
+            "value": "azure-container-apps-demos-keda-messaging"
+        }
+    }
+}

@@ -1,0 +1,275 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-08-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "LogAnalytics.Workspace.Name": {
+            "type": "String"
+        },
+        "ServiceBus.Namespace.Name": {
+            "type": "String"
+        },
+        "ContainerApps.Portal.Name": {
+            "type": "String"
+        },
+        "ContainerApps.OrderProcessor.Name": {
+            "type": "String"
+        },
+        "ContainerApps.Environment.Name": {
+            "type": "String"
+        }
+    },
+    "variables": {
+        "SecretNames.ServiceBus.ConnectionString.Portal": "servicebus-connectionstring",
+        "SecretNames.ServiceBus.ConnectionString.Autoscaler": "servicebus-connectionstring-autoscaler",
+        "SecretNames.ServiceBus.ConnectionString.Worker": "servicebus-connectionstring-worker",
+        "ServiceBus.Queue.Name": "orders",
+        "ServiceBus.Authorization.Autoscaler.Id": "[concat(parameters('ServiceBus.Namespace.Name'), '/', variables('ServiceBus.Authorization.Autoscaler.Name'))]",
+        "ServiceBus.Authorization.Autoscaler.Name": "orders-autoscaler",
+        "ServiceBus.Authorization.Portal.Id": "[concat(parameters('ServiceBus.Namespace.Name'), '/', variables('ServiceBus.Authorization.Portal.Name'))]",
+        "ServiceBus.Authorization.Portal.Name": "orders-portal",
+        "ServiceBus.Authorization.Worker.Id": "[concat(parameters('ServiceBus.Namespace.Name'), '/', variables('ServiceBus.Authorization.Worker.Name'))]",
+        "ServiceBus.Authorization.Worker.Name": "orders-worker",
+        "Workspace.Resource.Id": "[resourceId('Microsoft.OperationalInsights/workspaces/', parameters('LogAnalytics.Workspace.Name'))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.OperationalInsights/workspaces",
+            "apiVersion": "2020-03-01-preview",
+            "name": "[parameters('LogAnalytics.Workspace.Name')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "publicNetworkAccessForIngestion": "Enabled",
+                "publicNetworkAccessForQuery": "Enabled",
+                "retentionInDays": "30",
+                "sku": {
+                    "name": "PerGB2018"
+                },
+                "workspaceCapping": {
+                    "dailyQuotaGb": "30"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces",
+            "apiVersion": "2018-01-01-preview",
+            "name": "[parameters('ServiceBus.Namespace.Name')]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Standard"
+            },
+            "properties": {},
+            "resources": [
+                {
+                    "type": "Queues",
+                    "apiVersion": "2017-04-01",
+                    "name": "[variables('ServiceBus.Queue.Name')]",
+                    "properties": {},
+                    "dependsOn": [
+                        "[resourceId('Microsoft.ServiceBus/namespaces', parameters('ServiceBus.Namespace.Name'))]"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces/authorizationRules",
+            "apiVersion": "2017-04-01",
+            "name": "[variables('ServiceBus.Authorization.Autoscaler.Id')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "rights": [
+                    "Send",
+                    "Listen",
+                    "Manage"
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/', parameters('ServiceBus.Namespace.Name'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces/authorizationRules",
+            "apiVersion": "2017-04-01",
+            "name": "[variables('ServiceBus.Authorization.Portal.Id')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "rights": [
+                    "Send",
+                    "Listen",
+                    "Manage"
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/', parameters('ServiceBus.Namespace.Name'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces/authorizationRules",
+            "apiVersion": "2017-04-01",
+            "name": "[variables('ServiceBus.Authorization.Worker.Id')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "rights": [
+                    "Listen"
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/', parameters('ServiceBus.Namespace.Name'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Web/kubeEnvironments",
+            "apiVersion": "2021-02-01",
+            "name": "[parameters('ContainerApps.Environment.Name')]",
+            "location": "northeurope",
+            "tags": {},
+            "properties": {
+                "type": "managed",
+                "appLogsConfiguration": {
+                    "destination": "log-analytics",
+                    "logAnalyticsConfiguration": {
+                        "customerId": "[reference(variables('Workspace.Resource.Id'), '2015-11-01-preview').customerId]",
+                        "sharedKey": "[listKeys(variables('Workspace.Resource.Id'), '2015-03-20').primarySharedKey]"
+                    }
+                }
+            },
+            "dependsOn": [
+                "[variables('Workspace.Resource.Id')]"
+            ]
+        },
+        {
+            "type": "Microsoft.Web/containerApps",
+            "apiVersion": "2021-03-01",
+            "name": "[parameters('ContainerApps.Portal.Name')]",
+            "location": "northeurope",
+            "kind": "containerapp",
+            "properties": {
+                "kubeEnvironmentId": "[resourceId('Microsoft.Web/kubeEnvironments', parameters('ContainerApps.Environment.Name'))]",
+                "configuration": {
+                    "activeRevisionsMode": "single",
+                    "ingress": {
+                        "external": true,
+                        "targetPort": 80
+                    },
+                    "secrets": [
+                        {
+                            "name": "[variables('SecretNames.ServiceBus.ConnectionString.Portal')]",
+                            "value": "[listKeys(resourceId('Microsoft.ServiceBus/namespaces/AuthorizationRules',parameters('ServiceBus.Namespace.Name'), variables('ServiceBus.Authorization.Portal.Name')),'2015-08-01').primaryConnectionString]"
+                        }
+                    ]
+                },
+                "template": {
+                    "containers": [
+                        {
+                            "image": "kedasamples/sample-dotnet-web",
+                            "name": "portal",
+                            "env": [
+                                {
+                                    "name": "KEDA_SERVICEBUS_QUEUE_CONNECTIONSTRING",
+                                    "secretref": "[variables('SecretNames.ServiceBus.ConnectionString.Portal')]"
+                                }
+                            ]
+                        }
+                    ],
+                    "scale": {
+                        "minReplicas": 1,
+                        "maxReplicas": 5,
+                        "rules": [
+                            {
+                                "name": "http-autoscaling-rule",
+                                "http": {
+                                    "metadata": {
+                                        "concurrentRequests": "100"
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    "dapr": {
+                        "enabled": false
+                    }
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('ServiceBus.Namespace.Name'), variables('ServiceBus.Authorization.Portal.Name'))]",
+                "[resourceId('Microsoft.ServiceBus/namespaces/queues', parameters('ServiceBus.Namespace.Name'), variables('ServiceBus.Queue.Name'))]",
+                "[resourceId('Microsoft.Web/kubeEnvironments', parameters('ContainerApps.Environment.Name'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Web/containerApps",
+            "apiVersion": "2021-03-01",
+            "name": "[parameters('ContainerApps.OrderProcessor.Name')]",
+            "location": "northeurope",
+            "kind": "containerapp",
+            "properties": {
+                "kubeEnvironmentId": "[resourceId('Microsoft.Web/kubeEnvironments', parameters('ContainerApps.Environment.Name'))]",
+                "configuration": {
+                    "activeRevisionsMode": "single",
+                    "secrets": [
+                        {
+                            "name": "[variables('SecretNames.ServiceBus.ConnectionString.Autoscaler')]",
+                            "value": "[listKeys(resourceId('Microsoft.ServiceBus/namespaces/AuthorizationRules',parameters('ServiceBus.Namespace.Name'),variables('ServiceBus.Authorization.Autoscaler.Name')),'2015-08-01').primaryConnectionString]"
+                        },
+                        {
+                            "name": "[variables('SecretNames.ServiceBus.ConnectionString.Worker')]",
+                            "value": "[listKeys(resourceId('Microsoft.ServiceBus/namespaces/AuthorizationRules',parameters('ServiceBus.Namespace.Name'),variables('ServiceBus.Authorization.Worker.Name')),'2015-08-01').primaryConnectionString]"
+                        }
+                    ]
+                },
+                "template": {
+                    "containers": [
+                        {
+                            "image": "ghcr.io/kedacore/sample-dotnet-worker-servicebus-queue:latest",
+                            "name": "queue-worker",
+                            "env": [
+                                {
+                                    "name": "KEDA_SERVICEBUS_AUTH_MODE",
+                                    "value": "ConnectionString"
+                                },
+                                {
+                                    "name": "KEDA_SERVICEBUS_QUEUE_NAME",
+                                    "value": "[variables('ServiceBus.Queue.Name')]"
+                                },
+                                {
+                                    "name": "KEDA_SERVICEBUS_QUEUE_CONNECTIONSTRING",
+                                    "secretref": "[variables('SecretNames.ServiceBus.ConnectionString.Worker')]"
+                                }
+                            ]
+                        }
+                    ],
+                    "scale": {
+                        "minReplicas": "0",
+                        "maxReplicas": "10",
+                        "rules": [
+                            {
+                                "name": "queue-based-autoscaling",
+                                "custom": {
+                                    "type": "azure-servicebus",
+                                    "metadata": {
+                                        "queueName": "[variables('ServiceBus.Queue.Name')]",
+                                        "messageCount": "20"
+                                    },
+                                    "auth": [
+                                        {
+                                            "secretRef": "[variables('SecretNames.ServiceBus.ConnectionString.Autoscaler')]",
+                                            "triggerParameter": "connection"
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    "dapr": {
+                        "enabled": false
+                    }
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('ServiceBus.Namespace.Name'), variables('ServiceBus.Authorization.Autoscaler.Name'))]",
+                "[resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('ServiceBus.Namespace.Name'), variables('ServiceBus.Authorization.Worker.Name'))]",
+                "[resourceId('Microsoft.ServiceBus/namespaces/queues', parameters('ServiceBus.Namespace.Name'), variables('ServiceBus.Queue.Name'))]",
+                "[resourceId('Microsoft.Web/kubeEnvironments', parameters('ContainerApps.Environment.Name'))]"
+            ]
+        }
+    ]
+}
