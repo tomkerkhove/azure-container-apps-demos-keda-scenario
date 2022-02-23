@@ -8,12 +8,12 @@ This is a port of [Kubernetes Event-driven Autoscaling's (KEDA) '.NET Core worke
 
 ## Deploy
 
-Before you deploy, make sure to configure the required information in `deploy/service-bus-queue.parameters.parameters.json`
+Before you deploy, make sure to configure the required information in `deploy/service-bus-queue.parameters.json`
 
 To deploy the scenario, run the following command to deploy the ARM template:
 
 ```cli
-az deployment group create -n service-bus-queue -g $RESOURCE_GROUP_NAME --template-file deploy/service-bus-queue.template.json --parameters deploy/service-bus-queue.parameters.parameters.json
+az deployment group create -n service-bus-queue -g $RESOURCE_GROUP_NAME --template-file deploy/service-bus-queue.template.json --parameters deploy/service-bus-queue.parameters.json
 ```
 
 It will automatically create the Azure Service Bus namespaces with an orders queue which is being processed by the .NET Worker. The ASP.NET Core website will be deployed to the same resource group and visualize the information related to the pending messages to be processed.
