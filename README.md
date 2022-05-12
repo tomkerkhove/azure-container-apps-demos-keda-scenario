@@ -2,7 +2,7 @@
 
 This application is a .NET Core Worker that is processing an Azure Service Bus queue and provides an ASP.NET Core Web application to visualize the queue depth.
 
-![Scenario](https://raw.githubusercontent.com/kedacore/sample-dotnet-worker-servicebus-queue/main/images/scenario.png)
+![Scenario](./media/scenario.png)
 
 This is a port of [Kubernetes Event-driven Autoscaling's (KEDA) '.NET Core worker processing Azure Service Bus Queue' sample](https://github.com/kedacore/sample-dotnet-worker-servicebus-queue).
 
