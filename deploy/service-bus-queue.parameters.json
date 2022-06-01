@@ -15,7 +15,7 @@
             "value": "aca-demos-keda-apps-processor"
         },
         "ServiceBus.Namespace.Name": {
-            "value": "azure-container-apps-demos-keda-messaging"
+            "value": "azure-container-apps-keda-scaling-demo"
         }
     }
 }

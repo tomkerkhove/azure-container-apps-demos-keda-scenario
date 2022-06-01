@@ -117,13 +117,12 @@
             ]
         },
         {
-            "type": "Microsoft.Web/kubeEnvironments",
-            "apiVersion": "2021-02-01",
+            "type": "Microsoft.App/managedEnvironments",
+            "apiVersion": "2022-03-01",
             "name": "[parameters('ContainerApps.Environment.Name')]",
-            "location": "northeurope",
+            "location": "[resourceGroup().location]",
             "tags": {},
             "properties": {
-                "type": "managed",
                 "appLogsConfiguration": {
                     "destination": "log-analytics",
                     "logAnalyticsConfiguration": {
@@ -137,13 +136,12 @@
             ]
         },
         {
-            "type": "Microsoft.Web/containerApps",
-            "apiVersion": "2021-03-01",
+            "type": "Microsoft.App/containerApps",
+            "apiVersion": "2022-03-01",
             "name": "[parameters('ContainerApps.Portal.Name')]",
-            "location": "northeurope",
-            "kind": "containerapp",
+            "location": "[resourceGroup().location]",
             "properties": {
-                "kubeEnvironmentId": "[resourceId('Microsoft.Web/kubeEnvironments', parameters('ContainerApps.Environment.Name'))]",
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', parameters('ContainerApps.Environment.Name'))]",
                 "configuration": {
                     "activeRevisionsMode": "single",
                     "ingress": {
@@ -192,17 +190,16 @@
             "dependsOn": [
                 "[resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('ServiceBus.Namespace.Name'), variables('ServiceBus.Authorization.Portal.Name'))]",
                 "[resourceId('Microsoft.ServiceBus/namespaces/queues', parameters('ServiceBus.Namespace.Name'), variables('ServiceBus.Queue.Name'))]",
-                "[resourceId('Microsoft.Web/kubeEnvironments', parameters('ContainerApps.Environment.Name'))]"
+                "[resourceId('Microsoft.App/managedEnvironments', parameters('ContainerApps.Environment.Name'))]"
             ]
         },
         {
-            "type": "Microsoft.Web/containerApps",
-            "apiVersion": "2021-03-01",
+            "type": "Microsoft.App/containerApps",
+            "apiVersion": "2022-03-01",
             "name": "[parameters('ContainerApps.OrderProcessor.Name')]",
-            "location": "northeurope",
-            "kind": "containerapp",
+            "location": "[resourceGroup().location]",
             "properties": {
-                "kubeEnvironmentId": "[resourceId('Microsoft.Web/kubeEnvironments', parameters('ContainerApps.Environment.Name'))]",
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', parameters('ContainerApps.Environment.Name'))]",
                 "configuration": {
                     "activeRevisionsMode": "single",
                     "secrets": [
@@ -268,7 +265,7 @@
                 "[resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('ServiceBus.Namespace.Name'), variables('ServiceBus.Authorization.Autoscaler.Name'))]",
                 "[resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('ServiceBus.Namespace.Name'), variables('ServiceBus.Authorization.Worker.Name'))]",
                 "[resourceId('Microsoft.ServiceBus/namespaces/queues', parameters('ServiceBus.Namespace.Name'), variables('ServiceBus.Queue.Name'))]",
-                "[resourceId('Microsoft.Web/kubeEnvironments', parameters('ContainerApps.Environment.Name'))]"
+                "[resourceId('Microsoft.App/managedEnvironments', parameters('ContainerApps.Environment.Name'))]"
             ]
         }
     ]
